@@ -2,7 +2,10 @@ from app.services.github_service import (
     get_file_contents,
     get_pull_request_files,
 )
-from app.services.pr_service import build_pr_file
+from app.services.pr_service import (
+    build_pr_file,
+    extract_reviewable_files,
+)
 from app.services.review_service import review_code
 
 from app.services.pr_classification_service import (
@@ -39,21 +42,16 @@ def review_pull_request(
         pull_number=pull_number,
     )
 
+    reviewable_files = extract_reviewable_files(
+        github_files
+    )
+
     results = []
 
-    for github_file in github_files:
-        filename = github_file.get("filename")
-        patch = github_file.get("patch")
-
-        if not filename or not patch:
-            continue
-
-        from app.services.pr_service import get_language
-
-        language = get_language(filename)
-
-        if language is None:
-            continue
+    for github_file in reviewable_files:
+        filename = github_file["filename"]
+        language = github_file["language"]
+        patch = github_file["patch"]
 
         source_code = get_file_contents(
             owner=owner,

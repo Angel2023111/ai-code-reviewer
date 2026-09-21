@@ -251,3 +251,88 @@ def test_review_pull_request_propagates_github_api_error(
             pull_number=1,
             head_sha="abc123",
         )
+
+def test_review_pull_request_handles_mixed_files():
+    github_files = [
+        {
+            "filename": "app.py",
+            "status": "modified",
+            "patch": "@@ -1 +1 @@\n+print('app')",
+        },
+        {
+            "filename": "utils.py",
+            "status": "renamed",
+            "previous_filename": "old_utils.py",
+            "patch": "@@ -1 +1 @@\n+print('utils')",
+        },
+        {
+            "filename": "README.md",
+            "status": "modified",
+            "patch": "@@ -1 +1 @@\n+new documentation",
+        },
+        {
+            "filename": "image.png",
+            "status": "modified",
+            "patch": None,
+        },
+        {
+            "filename": "deleted.py",
+            "status": "removed",
+            "patch": "@@ -1 +0 @@\n-old code",
+        },
+    ]
+
+    source_codes = {
+        "app.py": "print('app')",
+        "utils.py": "print('utils')",
+    }
+
+    fake_response = ReviewResponse(
+        review_id="test-review",
+        summary=ReviewSummary(
+            critical=0,
+            high=0,
+            medium=0,
+            low=0,
+        ),
+        issues=[],
+    )
+
+    def fake_get_file_contents(
+        owner,
+        repo,
+        path,
+        ref,
+    ):
+        return source_codes[path]
+
+    with (
+        patch(
+            "app.services.pr_review_service.get_pull_request_files",
+            return_value=github_files,
+        ),
+        patch(
+            "app.services.pr_review_service.get_file_contents",
+            side_effect=fake_get_file_contents,
+        ) as mock_get_contents,
+        patch(
+            "app.services.pr_review_service.review_pr_file",
+            return_value=fake_response,
+        ) as mock_review,
+    ):
+        result = review_pull_request(
+            owner="test-owner",
+            repo="test-repo",
+            pull_number=12,
+            head_sha="abc123",
+        )
+
+    assert len(result) == 2
+
+    assert [item["filename"] for item in result] == [
+        "app.py",
+        "utils.py",
+    ]
+
+    assert mock_get_contents.call_count == 2
+    assert mock_review.call_count == 2
