@@ -18,19 +18,35 @@ def get_pull_request_files(
         f"{owner}/{repo}/pulls/{pull_number}/files"
     )
 
-    response = requests.get(
-        url,
-        timeout=10,
-    )
+    all_files = []
+    page = 1
 
-    try:
-        response.raise_for_status()
-    except requests.HTTPError as exc:
-        raise GitHubAPIError(
-            "GitHub API request failed."
-        ) from exc
+    while True:
+        response = requests.get(
+            url,
+            params={
+                "page": page,
+                "per_page": 100,
+            },
+            timeout=10,
+        )
 
-    return response.json()
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            raise GitHubAPIError(
+                "GitHub API request failed."
+            ) from exc
+
+        files = response.json()
+
+        if not files:
+            break
+
+        all_files.extend(files)
+        page += 1
+
+    return all_files
 
 def get_file_contents(
     owner: str,

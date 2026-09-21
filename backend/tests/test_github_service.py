@@ -21,13 +21,22 @@ def test_get_pull_request_files():
         }
     ]
 
-    mock_response = Mock()
-    mock_response.json.return_value = fake_files
-    mock_response.raise_for_status.return_value = None
+    responses = [
+        fake_files,
+        [],
+    ]
+
+    mock_responses = []
+
+    for data in responses:
+        mock_response = Mock()
+        mock_response.json.return_value = data
+        mock_response.raise_for_status.return_value = None
+        mock_responses.append(mock_response)
 
     with patch(
         "app.services.github_service.requests.get",
-        return_value=mock_response,
+        side_effect=mock_responses,
     ) as mock_get:
 
         result = get_pull_request_files(
@@ -38,11 +47,23 @@ def test_get_pull_request_files():
 
     assert result == fake_files
 
-    mock_get.assert_called_once_with(
-        "https://api.github.com/repos/"
-        "test-owner/test-repo/pulls/12/files",
-        timeout=10,
-    )
+    assert mock_get.call_count == 2
+
+    assert mock_get.call_args_list[0].kwargs == {
+        "params": {
+            "page": 1,
+            "per_page": 100,
+        },
+        "timeout": 10,
+    }
+
+    assert mock_get.call_args_list[1].kwargs == {
+        "params": {
+            "page": 2,
+            "per_page": 100,
+        },
+        "timeout": 10,
+    }
 
 def test_get_file_contents():
     import base64
@@ -154,3 +175,66 @@ def test_get_file_contents_raises_github_api_error(
             path="app.py",
             ref="abc123",
         )
+
+
+def test_get_pull_request_files_handles_pagination(
+    monkeypatch,
+):
+    responses = [
+        [
+            {
+                "filename": "file1.py",
+                "status": "modified",
+            }
+        ],
+        [
+            {
+                "filename": "file2.py",
+                "status": "modified",
+            }
+        ],
+        [],
+    ]
+
+    calls = []
+
+    class FakeResponse:
+        def __init__(self, data):
+            self._data = data
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._data
+
+    def fake_get(url, params=None, timeout=None):
+        calls.append(params["page"])
+
+        return FakeResponse(
+            responses[params["page"] - 1]
+        )
+
+    monkeypatch.setattr(
+        "app.services.github_service.requests.get",
+        fake_get,
+    )
+
+    result = get_pull_request_files(
+        owner="test-owner",
+        repo="test-repo",
+        pull_number=42,
+    )
+
+    assert result == [
+        {
+            "filename": "file1.py",
+            "status": "modified",
+        },
+        {
+            "filename": "file2.py",
+            "status": "modified",
+        },
+    ]
+
+    assert calls == [1, 2, 3]

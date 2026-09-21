@@ -21,6 +21,9 @@ def extract_reviewable_files(
     reviewable_files = []
 
     for file in files:
+        if file.get("status") == "removed":
+            continue
+
         filename = file.get("filename")
         patch = file.get("patch")
 
