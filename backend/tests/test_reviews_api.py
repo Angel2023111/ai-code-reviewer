@@ -12,6 +12,11 @@ from sqlalchemy.pool import StaticPool
 from app.db.database import Base, get_db
 from app.db.models import Review, ReviewIssue
 
+from app.schemas.review import (
+    ReviewResponse,
+    ReviewSummary,
+)
+
 def fake_llm_reviewer():
     return lambda code, language: []
 
@@ -86,21 +91,22 @@ def test_review_endpoint_rejects_missing_code():
 
 def test_create_pr_review(monkeypatch):
     fake_result = [
-        {
-            "filename": "app.py",
-            "changed_lines": [2],
-            "review": {
-                "review_id": "test-review",
-                "summary": {
-                    "critical": 0,
-                    "high": 1,
-                    "medium": 0,
-                    "low": 0,
-                },
-                "issues": [],
-            },
-        }
-    ]
+    {
+        "filename": "app.py",
+        "language": "python",
+        "changed_lines": [2],
+        "review": ReviewResponse(
+            review_id="test-review",
+            summary=ReviewSummary(
+                critical=0,
+                high=1,
+                medium=0,
+                low=0,
+            ),
+            issues=[],
+        ),
+    }
+]
 
     def fake_review_pull_request(
         owner,
@@ -131,7 +137,14 @@ def test_create_pr_review(monkeypatch):
     )
 
     assert response.status_code == 200
-    assert response.json() == fake_result
+    assert response.json() == [
+        {
+            "filename": "app.py",
+            "language": "python",
+            "changed_lines": [2],
+            "review": fake_result[0]["review"].model_dump(mode="json"),
+        }
+    ]
 
 def test_create_pr_review_returns_502_on_github_error(
     monkeypatch,

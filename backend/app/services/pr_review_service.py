@@ -72,6 +72,7 @@ def review_pull_request(
         results.append(
             {
                 "filename": filename,
+                "language": language,
                 "changed_lines": pr_file["changed_lines"],
                 "review": review,
             }

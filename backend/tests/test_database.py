@@ -1,8 +1,14 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.db.database import Base
 from app.db.models import Review, ReviewIssue
+from app.db.models import (
+    PullRequestFile,
+    PullRequestIssue,
+    PullRequestReview,
+)
 
 
 def test_review_and_issue_models():
@@ -56,3 +62,74 @@ def test_review_and_issue_models():
     assert saved_issue.confidence == 0.98
 
     session.close()
+
+def test_pull_request_review_relationships():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={
+            "check_same_thread": False,
+        },
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(
+        bind=engine,
+    )
+
+    db = TestingSessionLocal()
+
+    pull_request = PullRequestReview(
+        id="pr-review-123",
+        repository_owner="Angel2023111",
+        repository_name="ai-code-reviewer",
+        pull_number=42,
+        head_sha="abc123",
+    )
+
+    file = PullRequestFile(
+        filename="app.py",
+        language="python",
+        changed_lines="[10, 11, 12]",
+    )
+
+    issue = PullRequestIssue(
+        category="SECURITY",
+        severity="HIGH",
+        line_start=10,
+        line_end=10,
+        title="Dangerous eval usage",
+        description="eval can execute arbitrary code.",
+        suggestion="Avoid eval.",
+        confidence=0.98,
+        source="ast",
+        rule_id="dangerous-call",
+        pr_status="INTRODUCED",
+    )
+
+    file.issues.append(issue)
+    pull_request.files.append(file)
+
+    db.add(pull_request)
+    db.commit()
+
+    saved = db.get(
+        PullRequestReview,
+        "pr-review-123",
+    )
+
+    assert saved is not None
+    assert saved.repository_owner == "Angel2023111"
+    assert saved.repository_name == "ai-code-reviewer"
+    assert saved.pull_number == 42
+    assert saved.head_sha == "abc123"
+
+    assert len(saved.files) == 1
+    assert saved.files[0].filename == "app.py"
+
+    assert len(saved.files[0].issues) == 1
+    assert saved.files[0].issues[0].title == "Dangerous eval usage"
+    assert saved.files[0].issues[0].pr_status == "INTRODUCED"
+
+    db.close()

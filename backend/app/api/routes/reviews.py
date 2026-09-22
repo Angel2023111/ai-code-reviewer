@@ -16,7 +16,9 @@ from app.schemas.review import (
 from app.services.pr_review_service import review_pull_request
 from app.services.llm_service import review_with_llm
 from app.services.review_service import review_code
-
+from app.repositories.review_repository import (
+    save_pull_request_review,
+)
 
 router = APIRouter(
     prefix="/reviews",
@@ -93,14 +95,27 @@ def fetch_review(
 @router.post("/github-pr")
 def create_pr_review(
     request: PRReviewRequest,
+    db: Session = Depends(get_db),
 ):
     try:
-        return review_pull_request(
+        results = review_pull_request(
             owner=request.owner,
             repo=request.repo,
             pull_number=request.pull_number,
             head_sha=request.head_sha,
         )
+
+        save_pull_request_review(
+            db=db,
+            owner=request.owner,
+            repo=request.repo,
+            pull_number=request.pull_number,
+            head_sha=request.head_sha,
+            results=results,
+        )
+
+        return results
+
     except GitHubAPIError as exc:
         raise HTTPException(
             status_code=502,

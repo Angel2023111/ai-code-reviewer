@@ -1,10 +1,14 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.db.database import Base
 from app.repositories.review_repository import (
     get_review,
     save_review,
+)
+from app.repositories.review_repository import (
+    save_pull_request_review,
 )
 from app.schemas.review import (
     IssueCategory,
@@ -12,6 +16,7 @@ from app.schemas.review import (
     ReviewResponse,
     ReviewSummary,
     Severity,
+    FindingStatus,
 )
 
 
@@ -85,5 +90,82 @@ def test_save_and_get_review():
     assert fetched.issues[0].category == "SECURITY"
     assert fetched.issues[0].severity == "HIGH"
     assert fetched.issues[0].confidence == 0.98
+
+    db.close()
+
+def test_save_pull_request_review():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={
+            "check_same_thread": False,
+        },
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(
+        bind=engine,
+    )
+
+    db = TestingSessionLocal()
+
+    review = ReviewResponse(
+        review_id="review-123",
+        summary=ReviewSummary(
+            critical=0,
+            high=1,
+            medium=0,
+            low=0,
+        ),
+        issues=[
+            ReviewIssue(
+                category=IssueCategory.SECURITY,
+                severity=Severity.HIGH,
+                file="app.py",
+                line_start=10,
+                line_end=10,
+                title="Dangerous eval usage",
+                description="eval can execute arbitrary code.",
+                suggestion="Avoid eval.",
+                confidence=0.98,
+                source="ast",
+                rule_id="dangerous-call",
+                pr_status=FindingStatus.INTRODUCED,
+            )
+        ],
+    )
+
+    result = save_pull_request_review(
+        db=db,
+        owner="Angel2023111",
+        repo="ai-code-reviewer",
+        pull_number=42,
+        head_sha="abc123",
+        results=[
+            {
+                "filename": "app.py",
+                "language": "python",
+                "changed_lines": [10],
+                "review": review,
+            }
+        ],
+    )
+
+    assert result.repository_owner == "Angel2023111"
+    assert result.repository_name == "ai-code-reviewer"
+    assert result.pull_number == 42
+    assert result.head_sha == "abc123"
+
+    assert len(result.files) == 1
+    assert result.files[0].filename == "app.py"
+
+    assert len(result.files[0].issues) == 1
+
+    saved_issue = result.files[0].issues[0]
+
+    assert saved_issue.category == "SECURITY"
+    assert saved_issue.severity == "HIGH"
+    assert saved_issue.pr_status == "INTRODUCED"
 
     db.close()

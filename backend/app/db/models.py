@@ -130,3 +130,156 @@ class ReviewIssue(Base):
     review: Mapped[Review] = relationship(
         back_populates="issues",
     )
+
+class PullRequestReview(Base):
+    __tablename__ = "pull_request_reviews"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+    )
+
+    repository_owner: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    repository_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    pull_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    head_sha: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+    )
+
+    files: Mapped[list["PullRequestFile"]] = relationship(
+        back_populates="pull_request_review",
+        cascade="all, delete-orphan",
+    )
+
+
+class PullRequestFile(Base):
+    __tablename__ = "pull_request_files"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    pull_request_review_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("pull_request_reviews.id"),
+        nullable=False,
+    )
+
+    filename: Mapped[str] = mapped_column(
+        String(500),
+        nullable=False,
+    )
+
+    language: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    changed_lines: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+
+    pull_request_review: Mapped[PullRequestReview] = relationship(
+        back_populates="files",
+    )
+
+    issues: Mapped[list["PullRequestIssue"]] = relationship(
+        back_populates="file",
+        cascade="all, delete-orphan",
+    )
+
+
+class PullRequestIssue(Base):
+    __tablename__ = "pull_request_issues"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    file_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("pull_request_files.id"),
+        nullable=False,
+    )
+
+    category: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    severity: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+    )
+
+    line_start: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    line_end: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    title: Mapped[str] = mapped_column(
+        String(500),
+        nullable=False,
+    )
+
+    description: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+
+    suggestion: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+
+    confidence: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+    )
+
+    source: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+
+    rule_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    pr_status: Mapped[str | None] = mapped_column(
+        String(30),
+        nullable=True,
+    )
+
+    file: Mapped[PullRequestFile] = relationship(
+        back_populates="issues",
+    )
