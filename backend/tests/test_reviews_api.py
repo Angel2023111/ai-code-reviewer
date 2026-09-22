@@ -5,6 +5,13 @@ from app.api.routes.reviews import get_llm_reviewer
 
 from app.services.github_service import GitHubAPIError
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.db.database import Base, get_db
+from app.db.models import Review, ReviewIssue
+
 def fake_llm_reviewer():
     return lambda code, language: []
 
@@ -195,3 +202,107 @@ def test_create_pr_review_rejects_missing_head_sha():
     )
 
     assert response.status_code == 422
+
+def test_get_review():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={
+            "check_same_thread": False,
+        },
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(
+        bind=engine,
+    )
+
+    def override_get_db():
+        db = TestingSessionLocal()
+
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    db = TestingSessionLocal()
+
+    review = Review(
+        id="api-review-123",
+        critical=0,
+        high=1,
+        medium=0,
+        low=0,
+    )
+
+    issue = ReviewIssue(
+        category="SECURITY",
+        severity="HIGH",
+        file="app.py",
+        line_start=10,
+        line_end=10,
+        title="Dangerous eval usage",
+        description="eval can execute arbitrary code.",
+        suggestion="Avoid eval.",
+        confidence=0.98,
+        source="ast",
+        rule_id="dangerous-call",
+    )
+
+    review.issues.append(issue)
+
+    db.add(review)
+    db.commit()
+    db.close()
+
+    response = client.get(
+        "/reviews/api-review-123",
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["id"] == "api-review-123"
+    assert data["high"] == 1
+    assert len(data["issues"]) == 1
+    assert data["issues"][0]["category"] == "SECURITY"
+
+    app.dependency_overrides.clear()
+
+def test_get_review_not_found():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={
+            "check_same_thread": False,
+        },
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(
+        bind=engine,
+    )
+
+    def override_get_db():
+        db = TestingSessionLocal()
+
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    response = client.get(
+        "/reviews/does-not-exist",
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Review not found."
+
+    app.dependency_overrides.clear()

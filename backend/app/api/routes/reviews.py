@@ -2,7 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.repositories.review_repository import save_review
+from app.repositories.review_repository import (
+    get_review,
+    save_review,
+)
 
 from app.services.github_service import GitHubAPIError
 
@@ -43,6 +46,49 @@ def create_review(
     )
 
     return review
+
+@router.get("/{review_id}")
+def fetch_review(
+    review_id: str,
+    db: Session = Depends(get_db),
+):
+    review = get_review(
+        db,
+        review_id,
+    )
+
+    if review is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Review not found.",
+        )
+
+    return {
+        "id": review.id,
+        "created_at": review.created_at,
+        "critical": review.critical,
+        "high": review.high,
+        "medium": review.medium,
+        "low": review.low,
+        "issues": [
+            {
+                "id": issue.id,
+                "category": issue.category,
+                "severity": issue.severity,
+                "file": issue.file,
+                "line_start": issue.line_start,
+                "line_end": issue.line_end,
+                "title": issue.title,
+                "description": issue.description,
+                "suggestion": issue.suggestion,
+                "confidence": issue.confidence,
+                "source": issue.source,
+                "rule_id": issue.rule_id,
+                "pr_status": issue.pr_status,
+            }
+            for issue in review.issues
+        ],
+    }
 
 @router.post("/github-pr")
 def create_pr_review(
