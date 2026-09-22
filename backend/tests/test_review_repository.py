@@ -20,6 +20,15 @@ from app.schemas.review import (
     FindingStatus,
 )
 
+from app.db.models import JobStatus
+from app.repositories.review_repository import (
+    create_review_job,
+    get_review_job,
+    update_review_job_status,
+    complete_review_job,
+    fail_review_job,
+)
+
 
 def test_save_and_get_review():
     engine = create_engine(
@@ -248,5 +257,227 @@ def test_save_and_get_pull_request_review():
     assert len(retrieved.files[0].issues) == 1
     assert retrieved.files[0].issues[0].category == "SECURITY"
     assert retrieved.files[0].issues[0].severity == "HIGH"
+
+    db.close()
+
+def test_create_review_job():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={
+            "check_same_thread": False,
+        },
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(bind=engine)
+    db = TestingSessionLocal()
+
+    job = create_review_job(
+        db=db,
+        job_type="github_pr_review",
+    )
+
+    assert job.id is not None
+    assert job.status == JobStatus.PENDING.value
+    assert job.job_type == "github_pr_review"
+    assert job.review_id is None
+    assert job.error_message is None
+
+    db.close()
+
+def test_get_review_job():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={
+            "check_same_thread": False,
+        },
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(bind=engine)
+    db = TestingSessionLocal()
+
+    job = create_review_job(
+        db=db,
+        job_type="github_pr_review",
+    )
+
+    fetched = get_review_job(
+        db=db,
+        job_id=job.id,
+    )
+
+    assert fetched is not None
+    assert fetched.id == job.id
+    assert fetched.status == JobStatus.PENDING.value
+
+    db.close()
+
+def test_update_review_job_status():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={
+            "check_same_thread": False,
+        },
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(bind=engine)
+    db = TestingSessionLocal()
+
+    job = create_review_job(
+        db=db,
+        job_type="github_pr_review",
+    )
+
+    updated = update_review_job_status(
+        db=db,
+        job_id=job.id,
+        status=JobStatus.RUNNING,
+    )
+
+    assert updated is not None
+    assert updated.status == JobStatus.RUNNING.value
+
+    db.close()
+
+def test_complete_review_job():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={
+            "check_same_thread": False,
+        },
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(bind=engine)
+    db = TestingSessionLocal()
+
+    job = create_review_job(
+        db=db,
+        job_type="github_pr_review",
+    )
+
+    updated = complete_review_job(
+        db=db,
+        job_id=job.id,
+        review_id="review-123",
+    )
+
+    assert updated is not None
+    assert updated.status == JobStatus.COMPLETED.value
+    assert updated.review_id == "review-123"
+    assert updated.error_message is None
+
+    db.close()
+
+def test_fail_review_job():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={
+            "check_same_thread": False,
+        },
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(bind=engine)
+    db = TestingSessionLocal()
+
+    job = create_review_job(
+        db=db,
+        job_type="github_pr_review",
+    )
+
+    updated = fail_review_job(
+        db=db,
+        job_id=job.id,
+        error_message="GitHub API failed",
+    )
+
+    assert updated is not None
+    assert updated.status == JobStatus.FAILED.value
+    assert updated.error_message == "GitHub API failed"
+
+    db.close()
+
+def test_update_review_job_status_not_found():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={
+            "check_same_thread": False,
+        },
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(bind=engine)
+    db = TestingSessionLocal()
+
+    result = update_review_job_status(
+        db=db,
+        job_id="does-not-exist",
+        status=JobStatus.RUNNING,
+    )
+
+    assert result is None
+
+    db.close()
+
+def test_complete_review_job_not_found():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={
+            "check_same_thread": False,
+        },
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(bind=engine)
+    db = TestingSessionLocal()
+
+    result = complete_review_job(
+        db=db,
+        job_id="does-not-exist",
+        review_id="review-123",
+    )
+
+    assert result is None
+
+    db.close()
+
+def test_fail_review_job_not_found():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={
+            "check_same_thread": False,
+        },
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(bind=engine)
+    db = TestingSessionLocal()
+
+    result = fail_review_job(
+        db=db,
+        job_id="does-not-exist",
+        error_message="failure",
+    )
+
+    assert result is None
 
     db.close()

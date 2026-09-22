@@ -10,6 +10,11 @@ from app.db.models import (
     PullRequestReview,
 )
 
+from app.db.models import (
+    JobStatus,
+    ReviewJob,
+)
+
 
 def test_review_and_issue_models():
     engine = create_engine(
@@ -131,5 +136,84 @@ def test_pull_request_review_relationships():
     assert len(saved.files[0].issues) == 1
     assert saved.files[0].issues[0].title == "Dangerous eval usage"
     assert saved.files[0].issues[0].pr_status == "INTRODUCED"
+
+    db.close()
+
+def test_review_job_model():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={
+            "check_same_thread": False,
+        },
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(
+        bind=engine,
+    )
+
+    db = TestingSessionLocal()
+
+    job = ReviewJob(
+        id="job-123",
+        status=JobStatus.PENDING.value,
+        job_type="GITHUB_PR_REVIEW",
+    )
+
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    assert job.id == "job-123"
+    assert job.status == "PENDING"
+    assert job.job_type == "GITHUB_PR_REVIEW"
+    assert job.error_message is None
+    assert job.review_id is None
+
+    db.close()
+
+def test_review_job_status_transition():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={
+            "check_same_thread": False,
+        },
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(
+        bind=engine,
+    )
+
+    db = TestingSessionLocal()
+
+    job = ReviewJob(
+        id="job-456",
+        status=JobStatus.PENDING.value,
+        job_type="GITHUB_PR_REVIEW",
+    )
+
+    db.add(job)
+    db.commit()
+
+    job.status = JobStatus.RUNNING.value
+    db.commit()
+
+    db.refresh(job)
+
+    assert job.status == "RUNNING"
+
+    job.status = JobStatus.COMPLETED.value
+    job.review_id = "review-123"
+    db.commit()
+
+    db.refresh(job)
+
+    assert job.status == "COMPLETED"
+    assert job.review_id == "review-123"
 
     db.close()

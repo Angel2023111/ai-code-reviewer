@@ -10,6 +10,10 @@ from app.db.models import (
 )
 from sqlalchemy.orm import Session, joinedload
 
+from uuid import uuid4
+
+from app.db.models import ReviewJob, JobStatus
+
 def save_review(
     db: Session,
     review_response: ReviewResponse,
@@ -131,3 +135,83 @@ def get_pull_request_review(
         )
         .first()
     )
+
+def create_review_job(
+    db: Session,
+    job_type: str,
+) -> ReviewJob:
+    job = ReviewJob(
+        id=str(uuid4()),
+        status=JobStatus.PENDING.value,
+        job_type=job_type,
+    )
+
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    return job
+
+
+def get_review_job(
+    db: Session,
+    job_id: str,
+) -> ReviewJob | None:
+    return db.get(ReviewJob, job_id)
+
+
+def update_review_job_status(
+    db: Session,
+    job_id: str,
+    status: JobStatus,
+) -> ReviewJob | None:
+    job = db.get(ReviewJob, job_id)
+
+    if job is None:
+        return None
+
+    job.status = status.value
+
+    db.commit()
+    db.refresh(job)
+
+    return job
+
+
+def complete_review_job(
+    db: Session,
+    job_id: str,
+    review_id: str,
+) -> ReviewJob | None:
+    job = db.get(ReviewJob, job_id)
+
+    if job is None:
+        return None
+
+    job.status = JobStatus.COMPLETED.value
+    job.review_id = review_id
+    job.error_message = None
+
+    db.commit()
+    db.refresh(job)
+
+    return job
+
+
+def fail_review_job(
+    db: Session,
+    job_id: str,
+    error_message: str,
+) -> ReviewJob | None:
+    job = db.get(ReviewJob, job_id)
+
+    if job is None:
+        return None
+
+    job.status = JobStatus.FAILED.value
+    job.error_message = error_message
+
+    db.commit()
+    db.refresh(job)
+
+    return job
