@@ -19,6 +19,9 @@ from app.services.review_service import review_code
 from app.repositories.review_repository import (
     save_pull_request_review,
 )
+from app.repositories.review_repository import (
+    get_pull_request_review,
+)
 
 router = APIRouter(
     prefix="/reviews",
@@ -121,3 +124,56 @@ def create_pr_review(
             status_code=502,
             detail=str(exc),
         ) from exc
+
+
+
+@router.get("/github-pr/{review_id}")
+def fetch_pull_request_review(
+    review_id: str,
+    db: Session = Depends(get_db),
+):
+    review = get_pull_request_review(
+        db,
+        review_id,
+    )
+
+    if review is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Pull request review not found.",
+        )
+
+    return {
+        "id": review.id,
+        "repository_owner": review.repository_owner,
+        "repository_name": review.repository_name,
+        "pull_number": review.pull_number,
+        "head_sha": review.head_sha,
+        "created_at": review.created_at,
+        "files": [
+            {
+                "id": file.id,
+                "filename": file.filename,
+                "language": file.language,
+                "changed_lines": file.changed_lines,
+                "issues": [
+                    {
+                        "id": issue.id,
+                        "category": issue.category,
+                        "severity": issue.severity,
+                        "line_start": issue.line_start,
+                        "line_end": issue.line_end,
+                        "title": issue.title,
+                        "description": issue.description,
+                        "suggestion": issue.suggestion,
+                        "confidence": issue.confidence,
+                        "source": issue.source,
+                        "rule_id": issue.rule_id,
+                        "pr_status": issue.pr_status,
+                    }
+                    for issue in file.issues
+                ],
+            }
+            for file in review.files
+        ],
+    }

@@ -8,6 +8,7 @@ from app.db.models import (
     PullRequestIssue,
     PullRequestReview,
 )
+from sqlalchemy.orm import Session, joinedload
 
 def save_review(
     db: Session,
@@ -114,3 +115,19 @@ def save_pull_request_review(
     db.refresh(pull_request_review)
 
     return pull_request_review
+
+def get_pull_request_review(
+    db: Session,
+    review_id: str,
+) -> PullRequestReview | None:
+    return (
+        db.query(PullRequestReview)
+        .options(
+            joinedload(PullRequestReview.files)
+            .joinedload(PullRequestFile.issues)
+        )
+        .filter(
+            PullRequestReview.id == review_id
+        )
+        .first()
+    )

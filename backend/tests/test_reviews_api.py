@@ -16,6 +16,7 @@ from app.schemas.review import (
     ReviewResponse,
     ReviewSummary,
 )
+import pytest
 
 def fake_llm_reviewer():
     return lambda code, language: []
@@ -319,3 +320,64 @@ def test_get_review_not_found():
     assert response.json()["detail"] == "Review not found."
 
     app.dependency_overrides.clear()
+
+
+def test_get_pull_request_review(monkeypatch):
+    review_id = "pr-review-123"
+
+    def fake_get_pull_request_review(
+        db,
+        review_id,
+    ):
+        class FakeReview:
+            id = review_id
+            repository_owner = "test-owner"
+            repository_name = "test-repo"
+            pull_number = 42
+            head_sha = "abc123"
+            created_at = None
+            files = []
+
+        return FakeReview()
+
+    monkeypatch.setattr(
+        "app.api.routes.reviews.get_pull_request_review",
+        fake_get_pull_request_review,
+    )
+
+    response = client.get(
+        f"/reviews/github-pr/{review_id}"
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "id": review_id,
+        "repository_owner": "test-owner",
+        "repository_name": "test-repo",
+        "pull_number": 42,
+        "head_sha": "abc123",
+        "created_at": None,
+        "files": [],
+    }
+
+def test_get_pull_request_review_not_found(monkeypatch):
+    def fake_get_pull_request_review(
+        db,
+        review_id,
+    ):
+        return None
+
+    monkeypatch.setattr(
+        "app.api.routes.reviews.get_pull_request_review",
+        fake_get_pull_request_review,
+    )
+
+    response = client.get(
+        "/reviews/github-pr/nonexistent"
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Pull request review not found."
+    }
