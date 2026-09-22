@@ -1,4 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.db.database import get_db
+from app.repositories.review_repository import save_review
 
 from app.services.github_service import GitHubAPIError
 
@@ -24,13 +28,21 @@ def get_llm_reviewer():
 @router.post("/")
 def create_review(
     request: ReviewRequest,
+    db: Session = Depends(get_db),
     llm_reviewer=Depends(get_llm_reviewer),
 ):
-    return review_code(
+    review = review_code(
         request.code,
         request.language,
         llm_reviewer=llm_reviewer,
     )
+
+    save_review(
+        db,
+        review,
+    )
+
+    return review
 
 @router.post("/github-pr")
 def create_pr_review(
