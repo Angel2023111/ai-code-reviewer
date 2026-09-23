@@ -18,17 +18,48 @@ from app.schemas.review import (
 )
 import pytest
 
+engine = create_engine(
+    "sqlite://",
+    connect_args={
+        "check_same_thread": False,
+    },
+    poolclass=StaticPool,
+)
+
+TestingSessionLocal = sessionmaker(
+    bind=engine,
+)
+
+@pytest.fixture(autouse=True)
+def setup_database():
+    Base.metadata.create_all(bind=engine)
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_llm_reviewer] = fake_llm_reviewer
+
+    yield
+
+    Base.metadata.drop_all(bind=engine)
+    app.dependency_overrides.clear()
+
+
+
 def fake_llm_reviewer():
     return lambda code, language: []
 
 
-app.dependency_overrides[get_llm_reviewer] = fake_llm_reviewer
+def override_get_db():
+    db = TestingSessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()
+
 
 client = TestClient(app)
 
 
-def teardown_module():
-    app.dependency_overrides.clear()
 
 
 def test_review_endpoint_accepts_valid_request():
@@ -218,30 +249,8 @@ def test_create_pr_review_rejects_missing_head_sha():
     assert response.status_code == 422
 
 def test_get_review():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={
-            "check_same_thread": False,
-        },
-        poolclass=StaticPool,
-    )
 
-    Base.metadata.create_all(bind=engine)
-
-    TestingSessionLocal = sessionmaker(
-        bind=engine,
-    )
-
-    def override_get_db():
-        db = TestingSessionLocal()
-
-        try:
-            yield db
-        finally:
-            db.close()
-
-    app.dependency_overrides[get_db] = override_get_db
-
+    
     db = TestingSessionLocal()
 
     review = Review(
@@ -285,32 +294,7 @@ def test_get_review():
     assert len(data["issues"]) == 1
     assert data["issues"][0]["category"] == "SECURITY"
 
-    app.dependency_overrides.clear()
-
 def test_get_review_not_found():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={
-            "check_same_thread": False,
-        },
-        poolclass=StaticPool,
-    )
-
-    Base.metadata.create_all(bind=engine)
-
-    TestingSessionLocal = sessionmaker(
-        bind=engine,
-    )
-
-    def override_get_db():
-        db = TestingSessionLocal()
-
-        try:
-            yield db
-        finally:
-            db.close()
-
-    app.dependency_overrides[get_db] = override_get_db
 
     response = client.get(
         "/reviews/does-not-exist",
@@ -318,8 +302,6 @@ def test_get_review_not_found():
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Review not found."
-
-    app.dependency_overrides.clear()
 
 
 def test_get_pull_request_review(monkeypatch):

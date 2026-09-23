@@ -22,6 +22,16 @@ from app.repositories.review_repository import (
 from app.repositories.review_repository import (
     get_pull_request_review,
 )
+from app.db.models import JobStatus
+from app.repositories.review_repository import (
+    create_review_job,
+    get_review_job,
+)
+from app.schemas.review import (
+    ReviewJobRequest,
+    ReviewJobResponse,
+)
+from app.tasks.review_tasks import run_review_job
 
 router = APIRouter(
     prefix="/reviews",
@@ -52,48 +62,7 @@ def create_review(
 
     return review
 
-@router.get("/{review_id}")
-def fetch_review(
-    review_id: str,
-    db: Session = Depends(get_db),
-):
-    review = get_review(
-        db,
-        review_id,
-    )
 
-    if review is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Review not found.",
-        )
-
-    return {
-        "id": review.id,
-        "created_at": review.created_at,
-        "critical": review.critical,
-        "high": review.high,
-        "medium": review.medium,
-        "low": review.low,
-        "issues": [
-            {
-                "id": issue.id,
-                "category": issue.category,
-                "severity": issue.severity,
-                "file": issue.file,
-                "line_start": issue.line_start,
-                "line_end": issue.line_end,
-                "title": issue.title,
-                "description": issue.description,
-                "suggestion": issue.suggestion,
-                "confidence": issue.confidence,
-                "source": issue.source,
-                "rule_id": issue.rule_id,
-                "pr_status": issue.pr_status,
-            }
-            for issue in review.issues
-        ],
-    }
 
 @router.post("/github-pr")
 def create_pr_review(
@@ -175,5 +144,99 @@ def fetch_pull_request_review(
                 ],
             }
             for file in review.files
+        ],
+    }
+
+@router.post(
+    "/jobs",
+    response_model=ReviewJobResponse,
+)
+def create_review_job_endpoint(
+    request: ReviewJobRequest,
+    db: Session = Depends(get_db),
+):
+    job = create_review_job(
+        db=db,
+        job_type="CODE_REVIEW",
+    )
+
+    run_review_job.delay(
+        job.id,
+        request.code,
+        request.language,
+    )
+
+    return ReviewJobResponse(
+        job_id=job.id,
+        status=job.status,
+    )
+
+@router.get(
+    "/jobs/{job_id}",
+    response_model=ReviewJobResponse,
+)
+def get_review_job_endpoint(
+    job_id: str,
+    db: Session = Depends(get_db),
+):
+    job = get_review_job(
+        db=db,
+        job_id=job_id,
+    )
+
+    if job is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Review job not found",
+        )
+
+    return ReviewJobResponse(
+        job_id=job.id,
+        status=job.status,
+        review_id=job.review_id,
+        error_message=job.error_message,
+    )
+
+
+@router.get("/{review_id}")
+def fetch_review(
+    review_id: str,
+    db: Session = Depends(get_db),
+):
+    review = get_review(
+        db,
+        review_id,
+    )
+
+    if review is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Review not found.",
+        )
+
+    return {
+        "id": review.id,
+        "created_at": review.created_at,
+        "critical": review.critical,
+        "high": review.high,
+        "medium": review.medium,
+        "low": review.low,
+        "issues": [
+            {
+                "id": issue.id,
+                "category": issue.category,
+                "severity": issue.severity,
+                "file": issue.file,
+                "line_start": issue.line_start,
+                "line_end": issue.line_end,
+                "title": issue.title,
+                "description": issue.description,
+                "suggestion": issue.suggestion,
+                "confidence": issue.confidence,
+                "source": issue.source,
+                "rule_id": issue.rule_id,
+                "pr_status": issue.pr_status,
+            }
+            for issue in review.issues
         ],
     }

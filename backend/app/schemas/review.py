@@ -100,3 +100,23 @@ class ReviewResponse(BaseModel):
     summary: ReviewSummary
     issues: list[ReviewIssue]
 
+class ReviewJobRequest(BaseModel):
+    code: str = Field(
+        min_length=1,
+        max_length=100_000,
+        description="Source code to review",
+    )
+
+    language: str = Field(
+        min_length=1,
+        max_length=50,
+        description="Programming language",
+    )
+
+
+class ReviewJobResponse(BaseModel):
+    job_id: str
+    status: str
+    review_id: str | None = None
+    error_message: str | None = None
+
