@@ -79,3 +79,31 @@ def get_file_contents(
     return base64.b64decode(
         data["content"]
     ).decode("utf-8")
+
+def post_pull_request_comment(
+    owner: str,
+    repo: str,
+    pull_number: int,
+    body: str,
+) -> dict:
+    url = (
+        f"{GITHUB_API_BASE}/repos/"
+        f"{owner}/{repo}/issues/{pull_number}/comments"
+    )
+
+    response = requests.post(
+        url,
+        json={
+            "body": body,
+        },
+        timeout=10,
+    )
+
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        raise GitHubAPIError(
+            "GitHub API request failed."
+        ) from exc
+
+    return response.json()

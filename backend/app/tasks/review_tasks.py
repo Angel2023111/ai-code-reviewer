@@ -9,7 +9,17 @@ from app.repositories.review_repository import (
 )
 from app.services.review_service import review_code
 from app.services.pr_review_service import review_pull_request
+from app.services.github_comment_service import (
+    format_review_comment,
+)
 
+from app.services.github_service import (
+    GitHubAPIError,
+    post_pull_request_comment,
+)
+from app.repositories.review_repository import (
+            save_pull_request_review,
+        )
 
 @celery_app.task
 def run_review_job(
@@ -104,9 +114,7 @@ def run_pr_review_job(
             head_sha=head_sha,
         )
 
-        from app.repositories.review_repository import (
-            save_pull_request_review,
-        )
+        
 
         pull_request_review = save_pull_request_review(
             db=db,
@@ -116,6 +124,26 @@ def run_pr_review_job(
             head_sha=head_sha,
             results=results,
         )
+
+        for result in results:
+            review = result["review"]
+
+            comment_body = format_review_comment(
+                review
+            )
+
+            try:
+                post_pull_request_comment(
+                    owner=owner,
+                    repo=repo,
+                    pull_number=pull_number,
+                    body=comment_body,
+                )
+            except GitHubAPIError:
+                # The review itself was successfully
+                # generated and persisted. A comment failure
+                # should not mark the review job as failed.
+                continue
 
         complete_review_job(
             db=db,

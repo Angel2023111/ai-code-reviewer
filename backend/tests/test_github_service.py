@@ -238,3 +238,85 @@ def test_get_pull_request_files_handles_pagination(
     ]
 
     assert calls == [1, 2, 3]
+
+
+def test_post_pull_request_comment_success(monkeypatch):
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {
+                "id": 123,
+                "body": "Test review comment",
+            }
+
+    def fake_post(url, json, timeout):
+        assert (
+            url
+            == "https://api.github.com/repos/"
+            "test-owner/test-repo/issues/42/comments"
+        )
+        assert json == {
+            "body": "Test review comment",
+        }
+        assert timeout == 10
+
+        return FakeResponse()
+
+    monkeypatch.setattr(
+        "app.services.github_service.requests.post",
+        fake_post,
+    )
+
+    from app.services.github_service import (
+        post_pull_request_comment,
+    )
+
+    result = post_pull_request_comment(
+        owner="test-owner",
+        repo="test-repo",
+        pull_number=42,
+        body="Test review comment",
+    )
+
+    assert result == {
+        "id": 123,
+        "body": "Test review comment",
+    }
+
+def test_post_pull_request_comment_raises_github_api_error(
+    monkeypatch,
+):
+    import requests
+
+    class FakeResponse:
+        def raise_for_status(self):
+            raise requests.HTTPError("GitHub error")
+
+    def fake_post(url, json, timeout):
+        return FakeResponse()
+
+    monkeypatch.setattr(
+        "app.services.github_service.requests.post",
+        fake_post,
+    )
+
+    from app.services.github_service import (
+        GitHubAPIError,
+        post_pull_request_comment,
+    )
+
+    try:
+        post_pull_request_comment(
+            owner="test-owner",
+            repo="test-repo",
+            pull_number=42,
+            body="Test review comment",
+        )
+    except GitHubAPIError:
+        pass
+    else:
+        raise AssertionError(
+            "Expected GitHubAPIError"
+        )
