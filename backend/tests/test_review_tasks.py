@@ -11,7 +11,7 @@ from app.schemas.review import (
 )
 from app.tasks import review_tasks
 from app.repositories.review_repository import get_review_job
-
+from app.tasks.review_tasks import run_pr_review_job
 
 def create_test_session():
     engine = create_engine(

@@ -32,6 +32,9 @@ from app.schemas.review import (
     ReviewJobResponse,
 )
 from app.tasks.review_tasks import run_review_job
+from app.schemas.review import GitHubWebhookPayload
+from app.tasks.review_tasks import run_pr_review_job
+
 
 router = APIRouter(
     prefix="/reviews",
@@ -239,4 +242,46 @@ def fetch_review(
             }
             for issue in review.issues
         ],
+    }
+
+@router.post("/webhooks/github")
+def github_webhook(
+    payload: GitHubWebhookPayload,
+    db: Session = Depends(get_db),
+):
+    if payload.action not in {
+        "opened",
+        "synchronize",
+        "reopened",
+    }:
+        return {
+            "status": "ignored",
+            "reason": "Unsupported pull request action",
+        }
+
+    owner, repo = payload.repository.full_name.split(
+        "/",
+        1,
+    )
+
+    job = create_review_job(
+        db=db,
+        job_type="GITHUB_PR_REVIEW",
+    )
+
+    run_pr_review_job.delay(
+        job.id,
+        owner,
+        repo,
+        payload.pull_request.number,
+        payload.pull_request.head["sha"],
+    )
+
+    return {
+        "status": "accepted",
+        "job_id": job.id,
+        "owner": owner,
+        "repo": repo,
+        "pull_number": payload.pull_request.number,
+        "head_sha": payload.pull_request.head["sha"],
     }

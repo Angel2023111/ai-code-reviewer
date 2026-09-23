@@ -120,3 +120,17 @@ class ReviewJobResponse(BaseModel):
     review_id: str | None = None
     error_message: str | None = None
 
+class GitHubRepository(BaseModel):
+    full_name: str
+
+
+class GitHubPullRequest(BaseModel):
+    number: int
+    head: dict
+
+
+class GitHubWebhookPayload(BaseModel):
+    action: str
+    pull_request: GitHubPullRequest
+    repository: GitHubRepository
+
