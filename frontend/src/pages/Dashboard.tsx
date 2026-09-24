@@ -88,7 +88,10 @@ function Dashboard() {
             <p>Monitor your code reviews and findings.</p>
           </div>
 
-          <button className="new-review-btn">
+          <button
+            className="primary-button"
+            onClick={() => navigate("/reviews/new")}
+          >
             + New Review
           </button>
         </header>

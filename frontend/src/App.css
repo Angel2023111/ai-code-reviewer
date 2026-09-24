@@ -492,3 +492,142 @@
     flex-direction: column;
   }
 }
+
+.new-review-page {
+  min-height: 100vh;
+  padding: 40px;
+  background: #f5f7fb;
+}
+
+.new-review-header {
+  max-width: 1100px;
+  margin: 0 auto 28px;
+}
+
+.new-review-header h1 {
+  margin: 20px 0 8px;
+}
+
+.new-review-header p {
+  margin: 0;
+  color: #667085;
+  line-height: 1.6;
+  max-width: 750px;
+}
+
+.review-form {
+  max-width: 1100px;
+  margin: 0 auto;
+  background: white;
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  padding: 28px;
+}
+
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #344054;
+}
+
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  padding: 12px;
+  background: white;
+  color: #172033;
+}
+
+.form-group select {
+  max-width: 240px;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 400px;
+  font-family:
+    "Cascadia Code",
+    "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #667085;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.primary-button,
+.secondary-button {
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-button {
+  border: none;
+  background: #172033;
+  color: white;
+}
+
+.primary-button:hover {
+  background: #273449;
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.secondary-button {
+  border: 1px solid #d0d5dd;
+  background: white;
+  color: #344054;
+}
+
+.form-error {
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #fef3f2;
+  border: 1px solid #fecdca;
+  color: #b42318;
+}
+
+@media (max-width: 768px) {
+  .new-review-page {
+    padding: 20px;
+  }
+
+  .review-form {
+    padding: 20px;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .primary-button,
+  .secondary-button {
+    width: 100%;
+  }
+}
