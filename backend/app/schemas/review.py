@@ -134,3 +134,15 @@ class GitHubWebhookPayload(BaseModel):
     pull_request: GitHubPullRequest
     repository: GitHubRepository
 
+class ReviewHistoryItem(BaseModel):
+    id: str
+    created_at: str
+    critical: int
+    high: int
+    medium: int
+    low: int
+    issue_count: int
+
+class ReviewHistoryResponse(BaseModel):
+    reviews: list[ReviewHistoryItem]
+

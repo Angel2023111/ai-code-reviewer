@@ -34,6 +34,8 @@ from app.schemas.review import (
 from app.tasks.review_tasks import run_review_job
 from app.schemas.review import GitHubWebhookPayload
 from app.tasks.review_tasks import run_pr_review_job
+from app.repositories.review_repository import get_reviews
+from app.schemas.review import ReviewHistoryResponse
 
 
 router = APIRouter(
@@ -200,6 +202,30 @@ def get_review_job_endpoint(
         error_message=job.error_message,
     )
 
+@router.get(
+    "/",
+    response_model=ReviewHistoryResponse,
+)
+def list_reviews(
+    db: Session = Depends(get_db),
+):
+    reviews = get_reviews(db)
+
+    return ReviewHistoryResponse(
+        reviews=[
+            {
+                "id": str(review.id),
+                "created_at": review.created_at.isoformat(),
+                "critical": review.critical,
+                "high": review.high,
+                "medium": review.medium,
+                "low": review.low,
+                "issue_count": len(review.issues),
+            }
+            for review in reviews
+        ]
+    )
+
 
 @router.get("/{review_id}")
 def fetch_review(
@@ -285,3 +311,4 @@ def github_webhook(
         "pull_number": payload.pull_request.number,
         "head_sha": payload.pull_request.head["sha"],
     }
+

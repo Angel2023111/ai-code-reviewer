@@ -215,3 +215,14 @@ def fail_review_job(
     db.refresh(job)
 
     return job
+
+def get_reviews(
+    db: Session,
+    limit: int = 20,
+) -> list[Review]:
+    return (
+        db.query(Review)
+        .order_by(Review.created_at.desc())
+        .limit(limit)
+        .all()
+    )
