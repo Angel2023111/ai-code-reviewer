@@ -53,3 +53,17 @@ export interface ReviewResponse {
 
   issues: ReviewIssue[];
 }
+
+export interface ReviewHistoryItem {
+  id: string;
+  created_at: string;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  issue_count: number;
+}
+
+export interface ReviewHistoryResponse {
+  reviews: ReviewHistoryItem[];
+}
