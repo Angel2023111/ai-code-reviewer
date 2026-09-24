@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-
+import { useNavigate } from "react-router-dom";
 
 import { getReview, getReviews } from "../services/api";
 import type { 
@@ -9,6 +9,8 @@ import type {
  } from "../types/review";
 
 function Dashboard() {
+
+  const navigate = useNavigate();
   const [review, setReview] = useState<ReviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -214,6 +216,8 @@ function Dashboard() {
                 <div
                   className="review-row"
                   key={item.id}
+                  onClick={() => navigate(`/reviews/${item.id}`)}
+                  style={{ cursor: "pointer" }}
                 >
                   <div>
                     <strong>
