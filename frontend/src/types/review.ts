@@ -67,3 +67,10 @@ export interface ReviewHistoryItem {
 export interface ReviewHistoryResponse {
   reviews: ReviewHistoryItem[];
 }
+
+export interface ReviewJobResponse {
+  job_id: string;
+  status: string;
+  review_id: string | null;
+  error_message: string | null;
+}

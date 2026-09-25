@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import api from "../services/api";
+import {
+  createReviewJob,
+  getReviewJob,
+} from "../services/api";
 
 function NewReview() {
   const navigate = useNavigate();
@@ -10,34 +13,68 @@ function NewReview() {
   const [code, setCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  async function pollJob(jobId: string) {
+    const maxAttempts = 60;
 
-  async function handleSubmit(event: React.FormEvent) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const job = await getReviewJob(jobId);
+
+        console.log("REVIEW JOB:", job);
+
+        if (
+        job.status === "COMPLETED" &&
+        job.review_id
+        ) {
+        navigate(`/reviews/${job.review_id}`);
+        return;
+        }
+
+        if (job.status === "FAILED") {
+        throw new Error(
+            job.error_message ??
+            "Review job failed",
+        );
+        }
+
+        await new Promise((resolve) =>
+        setTimeout(resolve, 1000),
+        );
+    }
+
+    throw new Error(
+        "Review job timed out",
+    );
+    }
+
+  async function handleSubmit(
+    event: React.FormEvent,
+    ) {
     event.preventDefault();
 
     if (!code.trim()) {
-      setError("Please enter some code to review.");
-      return;
+        setError("Please enter some code to review.");
+        return;
     }
 
     try {
-      setSubmitting(true);
-      setError(null);
+        setSubmitting(true);
+        setError(null);
 
-      const response = await api.post("/reviews/", {
+        const job = await createReviewJob(
         code,
         language,
-      });
+        );
 
-      const reviewId = response.data.review_id;
-
-      navigate(`/reviews/${reviewId}`);
+        await pollJob(job.job_id);
     } catch (err) {
-      console.error(err);
-      setError("Failed to create review. Please try again.");
-    } finally {
-      setSubmitting(false);
+        console.error(err);
+        setError(
+        "Failed to create review. Please try again.",
+        );
+        setSubmitting(false);
     }
-  }
+    }
 
   return (
     <div className="new-review-page">
@@ -122,8 +159,8 @@ def divide(a, b):
             disabled={submitting}
           >
             {submitting
-              ? "Analyzing Code..."
-              : "Review Code"}
+                ? "Reviewing Code..."
+                : "Review Code"}
           </button>
         </div>
       </form>

@@ -512,6 +512,7 @@ After adding the image to the repository:
 
 ```markdown
 ![Dashboard](docs/screenshots/dashboard.png)
+```markdown
 ![Dashboard](docs/screenshots/dashboard2.png)
 ```
 
@@ -542,7 +543,7 @@ Then add:
 
 ```markdown
 ![Review Detail](docs/screenshots/review-detail.png)
-```
+```markdown
 ![Review Detail](docs/screenshots/review-detail1.png)
 ```
 
@@ -563,8 +564,11 @@ Then add:
 
 ```markdown
 ![New Review](docs/screenshots/new-review.png)
+```markdown
 ![New Review](docs/screenshots/new-review1.png)
+```markdown
 ![New Review](docs/screenshots/new-review2.png)
+```markdown
 ![New Review](docs/screenshots/new-review3.png)
 ```
 
