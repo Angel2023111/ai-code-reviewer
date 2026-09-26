@@ -69,35 +69,33 @@ def create_review(
 
 
 
-@router.post("/github-pr")
+@router.post(
+    "/github-pr",
+    response_model=ReviewJobResponse,
+)
 def create_pr_review(
     request: PRReviewRequest,
     db: Session = Depends(get_db),
 ):
-    try:
-        results = review_pull_request(
-            owner=request.owner,
-            repo=request.repo,
-            pull_number=request.pull_number,
-            head_sha=request.head_sha,
-        )
+    job = create_review_job(
+        db=db,
+        job_type="GITHUB_PR_REVIEW",
+    )
 
-        save_pull_request_review(
-            db=db,
-            owner=request.owner,
-            repo=request.repo,
-            pull_number=request.pull_number,
-            head_sha=request.head_sha,
-            results=results,
-        )
+    run_pr_review_job.delay(
+        job_id=str(job.id),
+        owner=request.owner,
+        repo=request.repo,
+        pull_number=request.pull_number,
+        head_sha=request.head_sha,
+    )
 
-        return results
-
-    except GitHubAPIError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=str(exc),
-        ) from exc
+    return ReviewJobResponse(
+        job_id=str(job.id),
+        status=str(job.status),
+        review_id=None,
+        error_message=None,
+    )
 
 
 

@@ -122,40 +122,24 @@ def test_review_endpoint_rejects_missing_code():
     assert response.status_code == 422
 
 def test_create_pr_review(monkeypatch):
-    fake_result = [
-    {
-        "filename": "app.py",
-        "language": "python",
-        "changed_lines": [2],
-        "review": ReviewResponse(
-            review_id="test-review",
-            summary=ReviewSummary(
-                critical=0,
-                high=1,
-                medium=0,
-                low=0,
-            ),
-            issues=[],
-        ),
-    }
-]
+    captured = {}
 
-    def fake_review_pull_request(
+    def fake_delay(
+        job_id,
         owner,
         repo,
         pull_number,
         head_sha,
     ):
-        assert owner == "test-owner"
-        assert repo == "test-repo"
-        assert pull_number == 42
-        assert head_sha == "abc123"
-
-        return fake_result
+        captured["job_id"] = job_id
+        captured["owner"] = owner
+        captured["repo"] = repo
+        captured["pull_number"] = pull_number
+        captured["head_sha"] = head_sha
 
     monkeypatch.setattr(
-        "app.api.routes.reviews.review_pull_request",
-        fake_review_pull_request,
+        "app.api.routes.reviews.run_pr_review_job.delay",
+        fake_delay,
     )
 
     response = client.post(
@@ -169,31 +153,41 @@ def test_create_pr_review(monkeypatch):
     )
 
     assert response.status_code == 200
-    assert response.json() == [
-        {
-            "filename": "app.py",
-            "language": "python",
-            "changed_lines": [2],
-            "review": fake_result[0]["review"].model_dump(mode="json"),
-        }
-    ]
 
-def test_create_pr_review_returns_502_on_github_error(
+    data = response.json()
+
+    assert "job_id" in data
+    assert data["status"] == "PENDING"
+    assert data["review_id"] is None
+    assert data["error_message"] is None
+
+    assert captured["job_id"] == data["job_id"]
+    assert captured["owner"] == "test-owner"
+    assert captured["repo"] == "test-repo"
+    assert captured["pull_number"] == 42
+    assert captured["head_sha"] == "abc123"
+
+def test_create_pr_review_queues_job(
     monkeypatch,
 ):
-    def fake_review_pull_request(
+    queued = {}
+
+    def fake_delay(
+        job_id,
         owner,
         repo,
         pull_number,
         head_sha,
     ):
-        raise GitHubAPIError(
-            "GitHub API request failed."
-        )
+        queued["job_id"] = job_id
+        queued["owner"] = owner
+        queued["repo"] = repo
+        queued["pull_number"] = pull_number
+        queued["head_sha"] = head_sha
 
     monkeypatch.setattr(
-        "app.api.routes.reviews.review_pull_request",
-        fake_review_pull_request,
+        "app.api.routes.reviews.run_pr_review_job.delay",
+        fake_delay,
     )
 
     response = client.post(
@@ -206,10 +200,12 @@ def test_create_pr_review_returns_502_on_github_error(
         },
     )
 
-    assert response.status_code == 502
-    assert response.json()["detail"] == (
-        "GitHub API request failed."
-    )
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["job_id"] == queued["job_id"]
+    assert data["status"] == "PENDING"
 
 def test_create_pr_review_rejects_missing_owner():
     response = client.post(
