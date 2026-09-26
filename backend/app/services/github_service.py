@@ -1,5 +1,13 @@
 import requests
+import os
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+if not GITHUB_TOKEN:
+    raise RuntimeError("GITHUB_TOKEN is not configured")
 
 GITHUB_API_BASE = "https://api.github.com"
 
@@ -91,8 +99,15 @@ def post_pull_request_comment(
         f"{owner}/{repo}/issues/{pull_number}/comments"
     )
 
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
     response = requests.post(
         url,
+        headers=headers,
         json={
             "body": body,
         },
