@@ -9,6 +9,9 @@ import Dashboard from "./pages/Dashboard";
 import ReviewDetail from "./pages/ReviewDetail";
 import NewReview from "./pages/NewReview";
 
+import GitHubPRReview from "./pages/GitHubPRReview";
+import GitHubPRReviewDetail from "./pages/GitHubPRReviewDetail";
+
 import "./App.css";
 
 function App() {
@@ -29,7 +32,15 @@ function App() {
           path="/reviews/:reviewId"
           element={<ReviewDetail />}
         />
+        <Route
+          path="/github-pr"
+          element={<GitHubPRReview />}
+        />
 
+        <Route
+          path="/github-pr/reviews/:reviewId"
+          element={<GitHubPRReviewDetail />}
+        />
         <Route
           path="*"
           element={<Navigate to="/" replace />}

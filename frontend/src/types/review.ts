@@ -74,3 +74,36 @@ export interface ReviewJobResponse {
   review_id: string | null;
   error_message: string | null;
 }
+
+export interface PullRequestIssue {
+  id: number;
+  category: string;
+  severity: string;
+  line_start: number | null;
+  line_end: number | null;
+  title: string;
+  description: string;
+  suggestion: string;
+  confidence: number;
+  source: string | null;
+  rule_id: string | null;
+  pr_status: string | null;
+}
+
+export interface PullRequestFile {
+  id: number;
+  filename: string;
+  language: string;
+  changed_lines: string;
+  issues: PullRequestIssue[];
+}
+
+export interface PullRequestReview {
+  id: string;
+  repository_owner: string;
+  repository_name: string;
+  pull_number: number;
+  head_sha: string;
+  created_at: string;
+  files: PullRequestFile[];
+}

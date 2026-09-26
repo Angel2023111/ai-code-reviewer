@@ -88,12 +88,25 @@ function Dashboard() {
             <p>Monitor your code reviews and findings.</p>
           </div>
 
-          <button
-            className="primary-button"
-            onClick={() => navigate("/reviews/new")}
-          >
-            + New Review
-          </button>
+          <div className="dashboard-actions">
+            <button
+              className="secondary-button"
+              onClick={() =>
+                navigate("/reviews/new")
+              }
+            >
+              New Code Review
+            </button>
+
+            <button
+              className="primary-button"
+              onClick={() =>
+                navigate("/github-pr")
+              }
+            >
+              Review GitHub PR
+            </button>
+          </div>
         </header>
 
         {/* Stats */}
