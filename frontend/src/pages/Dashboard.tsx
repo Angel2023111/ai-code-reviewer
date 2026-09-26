@@ -3,37 +3,53 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { getReview, getReviews } from "../services/api";
-import type { 
+
+import type {
   ReviewResponse,
   ReviewHistoryItem,
- } from "../types/review";
+} from "../types/review";
 
 function Dashboard() {
-
   const navigate = useNavigate();
+
   const [review, setReview] = useState<ReviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [reviews, setReviews] = useState<
-    ReviewHistoryItem[]
-  >([]);
-
-  // Replace this with the review_id you got from Swagger
-  const reviewId = "8771f965-ff05-4594-8d78-a1303d99eb1b";
+  const [reviews, setReviews] = useState<ReviewHistoryItem[]>([]);
 
   useEffect(() => {
     async function loadDashboard() {
       try {
-        const [reviewData, historyData] = await Promise.all([
-          getReview(reviewId),
-          getReviews(),
-        ]);
+        setLoading(true);
+        setError(null);
 
-        console.log("REVIEW FROM BACKEND:", reviewData);
-        console.log("REVIEW HISTORY FROM BACKEND:", historyData);
+        // First get all reviews from the backend.
+        const historyData = await getReviews();
 
-        setReview(reviewData);
+        console.log(
+          "REVIEW HISTORY FROM BACKEND:",
+          historyData,
+        );
+
         setReviews(historyData.reviews);
+
+        // If reviews exist, load the most recent review.
+        if (historyData.reviews.length > 0) {
+          const latestReview = historyData.reviews[0];
+
+          const reviewData = await getReview(
+            latestReview.id,
+          );
+
+          console.log(
+            "LATEST REVIEW FROM BACKEND:",
+            reviewData,
+          );
+
+          setReview(reviewData);
+        } else {
+          setReview(null);
+        }
       } catch (err) {
         console.error(err);
         setError("Failed to load dashboard data");
@@ -60,12 +76,20 @@ function Dashboard() {
             Dashboard
           </div>
 
-          <div className="nav-item">
+          <div
+            className="nav-item"
+            onClick={() => navigate("/reviews")}
+            style={{ cursor: "pointer" }}
+          >
             <span>◫</span>
             Reviews
           </div>
 
-          <div className="nav-item">
+          <div
+            className="nav-item"
+            onClick={() => navigate("/github-pr")}
+            style={{ cursor: "pointer" }}
+          >
             <span>⑂</span>
             GitHub PRs
           </div>
@@ -85,7 +109,9 @@ function Dashboard() {
         <header className="topbar">
           <div>
             <h1>Dashboard</h1>
-            <p>Monitor your code reviews and findings.</p>
+            <p>
+              Monitor your code reviews and findings.
+            </p>
           </div>
 
           <div className="dashboard-actions">
@@ -121,33 +147,45 @@ function Dashboard() {
                 <span className="stat-label">
                   Critical Issues
                 </span>
-                <strong>{review.critical}</strong>
+
+                <strong>
+                  {review.critical}
+                </strong>
               </div>
 
               <div className="stat-card">
                 <span className="stat-label">
                   High Severity
                 </span>
-                <strong>{review.high}</strong>
+
+                <strong>
+                  {review.high}
+                </strong>
               </div>
 
               <div className="stat-card">
                 <span className="stat-label">
                   Total Issues
                 </span>
-                <strong>{review.issues.length}</strong>
+
+                <strong>
+                  {review.issues.length}
+                </strong>
               </div>
 
               <div className="stat-card">
                 <span className="stat-label">
-                  Review ID
+                  Latest Review
                 </span>
+
                 <strong>
                   {review.id.slice(0, 8)}
                 </strong>
               </div>
             </>
-          ) : null}
+          ) : (
+            <p>No reviews available yet.</p>
+          )}
         </section>
 
         {/* Review Findings */}
@@ -155,21 +193,35 @@ function Dashboard() {
           <div className="section-header">
             <div>
               <h2>Review Findings</h2>
+
               <p>
-                Issues detected by the code review system
+                Issues detected by the code review
+                system
               </p>
             </div>
           </div>
 
-          {loading && <p>Loading review...</p>}
+          {loading && (
+            <p>Loading review...</p>
+          )}
 
           {error && <p>{error}</p>}
 
           {!loading &&
             !error &&
+            !review && (
+              <p>
+                No review findings available.
+              </p>
+            )}
+
+          {!loading &&
+            !error &&
             review &&
             review.issues.length === 0 && (
-              <p>No issues were detected.</p>
+              <p>
+                No issues were detected.
+              </p>
             )}
 
           {!loading &&
@@ -177,104 +229,133 @@ function Dashboard() {
             review &&
             review.issues.length > 0 && (
               <div className="review-list">
-                {review.issues.map((issue, index) => (
+                {review.issues.map(
+                  (issue, index) => (
+                    <div
+                      className="review-row"
+                      key={index}
+                    >
+                      <div>
+                        <strong>
+                          {issue.title}
+                        </strong>
+
+                        <p>
+                          {issue.description}
+                        </p>
+
+                        <small>
+                          {issue.file ??
+                            "Unknown file"}
+
+                          {issue.line_start !==
+                            null &&
+                            `:${issue.line_start}`}
+                        </small>
+                      </div>
+
+                      <div>
+                        <span
+                          className={`severity ${issue.severity.toLowerCase()}`}
+                        >
+                          {issue.severity}
+                        </span>
+
+                        <span>
+                          {issue.category}
+                        </span>
+                      </div>
+                    </div>
+                  ),
+                )}
+              </div>
+            )}
+        </section>
+
+        {/* Recent Reviews */}
+        <section className="reviews-section">
+          <div className="section-header">
+            <div>
+              <h2>Recent Reviews</h2>
+
+              <p>
+                Latest code reviews processed by
+                the system
+              </p>
+            </div>
+          </div>
+
+          {loading && (
+            <p>Loading reviews...</p>
+          )}
+
+          {!loading &&
+            !error &&
+            reviews.length === 0 && (
+              <p>No reviews found.</p>
+            )}
+
+          {!loading &&
+            !error &&
+            reviews.length > 0 && (
+              <div className="review-list">
+                {reviews.map((item) => (
                   <div
                     className="review-row"
-                    key={index}
+                    key={item.id}
+                    onClick={() =>
+                      navigate(
+                        `/reviews/${item.id}`,
+                      )
+                    }
+                    style={{
+                      cursor: "pointer",
+                    }}
                   >
                     <div>
-                      <strong>{issue.title}</strong>
+                      <strong>
+                        Review{" "}
+                        {item.id.slice(0, 8)}
+                      </strong>
 
-                      <p>{issue.description}</p>
+                      <p>
+                        {item.issue_count} issue
+                        {item.issue_count !==
+                        1
+                          ? "s"
+                          : ""}{" "}
+                        detected
+                      </p>
 
                       <small>
-                        {issue.file ?? "Unknown file"}
-
-                        {issue.line_start !== null &&
-                          `:${issue.line_start}`}
+                        {new Date(
+                          item.created_at,
+                        ).toLocaleString()}
                       </small>
                     </div>
 
                     <div>
-                      <span
-                        className={`severity ${issue.severity.toLowerCase()}`}
-                      >
-                        {issue.severity}
+                      <span className="severity critical">
+                        {item.critical} Critical
                       </span>
 
-                      <span>{issue.category}</span>
+                      <span className="severity high">
+                        {item.high} High
+                      </span>
+
+                      <span className="severity medium">
+                        {item.medium} Medium
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
             )}
         </section>
-        {/* Recent Reviews */}
-        <section className="reviews-section">
-          <div className="section-header">
-            <div>
-              <h2>Recent Reviews</h2>
-              <p>
-                Latest code reviews processed by the system
-              </p>
-            </div>
-          </div>
-
-          {loading && <p>Loading reviews...</p>}
-
-          {!loading && !error && reviews.length === 0 && (
-            <p>No reviews found.</p>
-          )}
-
-          {!loading && !error && reviews.length > 0 && (
-            <div className="review-list">
-              {reviews.map((item) => (
-                <div
-                  className="review-row"
-                  key={item.id}
-                  onClick={() => navigate(`/reviews/${item.id}`)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <div>
-                    <strong>
-                      Review {item.id.slice(0, 8)}
-                    </strong>
-
-                    <p>
-                      {item.issue_count} issue
-                      {item.issue_count !== 1 ? "s" : ""} detected
-                    </p>
-
-                    <small>
-                      {new Date(
-                        item.created_at,
-                      ).toLocaleString()}
-                    </small>
-                  </div>
-
-                  <div>
-                    <span className="severity critical">
-                      {item.critical} Critical
-                    </span>
-
-                    <span className="severity high">
-                      {item.high} High
-                    </span>
-
-                    <span className="severity medium">
-                      {item.medium} Medium
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
       </main>
     </div>
   );
 }
 
-
-
 export default Dashboard;
+

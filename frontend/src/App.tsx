@@ -13,6 +13,7 @@ import GitHubPRReview from "./pages/GitHubPRReview";
 import GitHubPRReviewDetail from "./pages/GitHubPRReviewDetail";
 
 import "./App.css";
+import Reviews from "./pages/Reviews";
 
 function App() {
   return (
@@ -22,7 +23,7 @@ function App() {
           path="/"
           element={<Dashboard />}
         />
-
+        <Route path="/reviews" element={<Reviews />} />
         <Route
           path="/reviews/new"
           element={<NewReview />}

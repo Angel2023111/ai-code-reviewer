@@ -251,7 +251,7 @@ def test_post_pull_request_comment_success(monkeypatch):
                 "body": "Test review comment",
             }
 
-    def fake_post(url, json, timeout):
+    def fake_post(url, headers,json, timeout):
         assert (
             url
             == "https://api.github.com/repos/"
@@ -294,7 +294,7 @@ def test_post_pull_request_comment_raises_github_api_error(
         def raise_for_status(self):
             raise requests.HTTPError("GitHub error")
 
-    def fake_post(url, json, timeout):
+    def fake_post(url,headers, json, timeout):
         return FakeResponse()
 
     monkeypatch.setattr(
